@@ -1,0 +1,69 @@
+name: Build Android APK and upload to Dropbox
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    env:
+      APK_PATH: android/app/build/outputs/apk/release/app-release.apk
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build Android release APK
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Upload APK to Dropbox
+        if: success()
+        env:
+          DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+          APK_PATH: ${{ env.APK_PATH }}
+        run: |
+          if [ ! -f "$APK_PATH" ]; then echo "APK not found at $APK_PATH"; exit 1; fi
+          DEST_PATH="/${GITHUB_REPOSITORY}-app-release.apk"
+          echo "Uploading $APK_PATH to Dropbox at $DEST_PATH"
+          curl -s -X POST https://content.dropboxapi.com/2/files/upload \
+            --header "Authorization: Bearer $DROPBOX_TOKEN" \
+            --header "Dropbox-API-Arg: {\"path\": \"${DEST_PATH}\",\"mode\": \"overwrite\",\"mute\": false}" \
+            --header "Content-Type: application/octet-stream" \
+            --data-binary @"$APK_PATH" > /tmp/dropbox_upload.json
+          echo "Upload response:" && cat /tmp/dropbox_upload.json
+          echo "Creating shared link..."
+          curl -s -X POST https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings \
+            --header "Authorization: Bearer $DROPBOX_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "{\"path\":\"${DEST_PATH}\",\"settings\":{}}" > /tmp/dropbox_link.json
+          echo "Shared link response:" && cat /tmp/dropbox_link.json
+          LINK=$(jq -r '.url // empty' /tmp/dropbox_link.json)
+          if [ -z "$LINK" ]; then echo "Failed to create shared link"; exit 1; fi
+          echo "apk_download_link=$LINK" >> $GITHUB_OUTPUT
