@@ -25,12 +25,23 @@ jobs:
         distribution: temurin
         java-version: '17'
 
-    - name: Set up Android SDK
-      uses: r0adkll/setup-android@v2
-      with:
-        api-level: 33
-        build-tools: 33.0.2
-        ndk: 25.2.9519653
+    - name: Install Android SDK command-line tools
+      run: |
+        set -e
+        sudo apt-get update
+        sudo apt-get install -y unzip wget tar lib32z1 lib32ncurses6 lib32stdc++6
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline.zip
+        unzip -q /tmp/cmdline.zip -d $HOME/android-sdk/cmdline-tools
+        mkdir -p $HOME/android-sdk/cmdline-tools/latest
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/ || true
+        export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
+        yes | sdkmanager --licenses || true
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.2.9519653"
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        ANDROID_SDK_ROOT: ${{ runner.home }}/android-sdk
 
     - name: Cache Gradle
       uses: actions/cache@v4
