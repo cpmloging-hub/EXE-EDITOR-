@@ -57,8 +57,8 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
     - name: Create minimal React Native project
-      run: |
-        npx react-native init tempRNProject --version 0.72.12 --npm
+        run: |
+          npx @react-native-community/cli init tempRNProject --version 0.72.12 --npm
 
     - name: Copy app UI into generated project
       run: |
