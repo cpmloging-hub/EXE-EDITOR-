@@ -52,7 +52,7 @@ jobs:
 
     - name: Create minimal React Native project
       run: |
-        npx @react-native-community/cli@latest init tempRNProject --version 0.72.12 --package-manager npm
+        npx @react-native-community/cli@latest init tempRNProject --template react-native@0.72.12
 
     - name: Copy app UI into generated project
       run: |
